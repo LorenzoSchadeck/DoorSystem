@@ -13,8 +13,7 @@ public class CameraRaycast : MonoBehaviour
             RaycastHit hit;
             if (Physics.Raycast(transform.position, transform.forward, out hit, interactionDistance))
             {
-                Key key = hit.collider.GetComponent<Key>();
-                if (key != null)
+                if(hit.collider.TryGetComponent<Key>(out Key key)) 
                 {
                     key.Interact();
                 }
