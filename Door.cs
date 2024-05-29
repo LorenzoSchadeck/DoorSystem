@@ -1,23 +1,33 @@
 using System.Collections;
+using TMPro;
 using UnityEngine;
 
 public class Door : MonoBehaviour
 {
     [SerializeField] private enum DoorState { Unlocked, Locked, Jammed }
+
+    [Header("Door States")]
+    [Space(5)]
     [SerializeField] private DoorState currentState = DoorState.Unlocked;
-
-    [SerializeField] private float doorInteractionDistance = 2f;
-    [SerializeField] private float openSpeed = 2f;
-
+    [SerializeField] private TextMeshProUGUI interact;
+    [SerializeField] private TextMeshProUGUI states;
     private bool isDoorMoving = false;
     private bool isDoorOpen = false;
     private bool isJammedDoorOpen = false;
+
+    [Header("Door Interaction")]
+    [Space(5)]
+    [SerializeField] private float doorInteractionDistance = 2f;
+    [SerializeField] private float openSpeed = 2f;
     private Quaternion closedRotation;
     private Quaternion openRotation;
     private Quaternion jammedRotation;
-    public Key requiredKey;
 
+    [Header("Other")]
+    [Space(5)]
+    public Key requiredKey;
     private Transform player;
+    private Camera playerCamera;
 
     void Start()
     {
@@ -26,17 +36,45 @@ public class Door : MonoBehaviour
         jammedRotation = closedRotation * Quaternion.Euler(0, -20, 0);
 
         player = GameObject.FindGameObjectWithTag("Player").transform;
+        playerCamera = Camera.main; 
     }
 
     void Update()
     {
-         if (Vector3.Distance(player.position, transform.position) <= doorInteractionDistance)
+        float distance = Vector3.Distance(player.position, transform.position);
+
+        if (distance <= doorInteractionDistance && IsLookingAtDoor())
         {
+            interact.text = "Press (E) To Interact";
+
             if (Input.GetKeyDown(KeyCode.E) && !isDoorMoving)
             {
                 InteractWithDoor();
             }
         }
+        else
+        {
+            if (interact != null)
+            {
+                interact.text = "";
+            }
+        }
+    }
+
+    bool IsLookingAtDoor()
+    {
+        Ray ray = new Ray(playerCamera.transform.position, playerCamera.transform.forward);
+        RaycastHit hit;
+
+        if (Physics.Raycast(ray, out hit, doorInteractionDistance))
+        {
+            if (hit.transform.IsChildOf(transform))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     void InteractWithDoor()
@@ -45,12 +83,22 @@ public class Door : MonoBehaviour
         {
             ToggleDoor();
         }
-        else if (currentState == DoorState.Locked && Inventory.Instance.HasKey(requiredKey))
+        else if (currentState == DoorState.Locked)
         {
-            UnlockDoor();
+            if (Inventory.Instance.HasKey(requiredKey))
+            {
+                UnlockDoor();
+            }
+            else
+            {
+                states.text = "Locked";
+                StartCoroutine(ClearStateTextAfterDelay(0.5f));
+            }
         }
         else if (currentState == DoorState.Jammed)
         {
+            states.text = "The Door is jammed";
+            StartCoroutine(ClearStateTextAfterDelay(4f));
             isDoorMoving = true;
             if (isJammedDoorOpen)
             {
@@ -79,6 +127,8 @@ public class Door : MonoBehaviour
     void UnlockDoor()
     {
         currentState = DoorState.Unlocked;
+        states.text = "Unlocked";
+        StartCoroutine(ClearStateTextAfterDelay(4f));
         ToggleDoor();
     }
 
@@ -97,6 +147,7 @@ public class Door : MonoBehaviour
         transform.rotation = openRotation;
         isDoorMoving = false;
         isDoorOpen = true;
+        states.text = "";
     }
 
     IEnumerator CloseDoorSmoothly()
@@ -114,6 +165,7 @@ public class Door : MonoBehaviour
         transform.rotation = closedRotation;
         isDoorMoving = false;
         isDoorOpen = false;
+        states.text = "";
     }
 
     IEnumerator OpenJammedDoorSmoothly()
@@ -131,6 +183,7 @@ public class Door : MonoBehaviour
         transform.rotation = jammedRotation;
         isDoorMoving = false;
         isJammedDoorOpen = true;
+        states.text = "";
     }
 
     IEnumerator CloseJammedDoorSmoothly()
@@ -149,5 +202,12 @@ public class Door : MonoBehaviour
         transform.rotation = targetRotation;
         isDoorMoving = false;
         isJammedDoorOpen = false;
+        states.text = "";
+    }
+
+    IEnumerator ClearStateTextAfterDelay(float delay)
+    {
+        yield return new WaitForSeconds(delay);
+        states.text = "";
     }
 }
